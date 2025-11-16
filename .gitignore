@@ -1,0 +1,8 @@
+# Pycache
+__pycache__
+
+# Virtual environment
+.venv
+
+# Models
+.pth

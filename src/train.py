@@ -24,7 +24,6 @@ class Trainer:
 
         self.player1_wins = []
         self.player2_wins = []
-        self.ties = []
 
         self.losses = []
         self.win_rates = []
@@ -84,18 +83,17 @@ class Trainer:
         target = torch.FloatTensor([[1.0]]) if won else torch.FloatTensor([[0.0]])
 
         loss = nn.functional.mse_loss(value, target)
-        
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         
-        
+        print(f"Player {player}, won: {won}, result: {result['result']}")
+
         if player == 1:
-            self.player1_wins.append(1 if won else 0)
+            self.player1_wins.append(won)
         elif player == 2:
-            self.player2_wins.append(1 if won else 0)
-        else:
-            self.ties.append(1 if won else 0)
+            self.player2_wins.append(won)
 
         return loss.item(), won
 
@@ -109,7 +107,6 @@ class Trainer:
                 await self.websocket.send(pieces)
 
                 result = await self.websocket.recv()
-                await self.websocket.close()
 
                 result = self._parse_result(result)
 
@@ -132,8 +129,8 @@ class Trainer:
         gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.3)
         ax1 = fig.add_subplot(gs[0, :])  # Loss plot (full width)
         ax2 = fig.add_subplot(gs[1, :])  # Overall win rate (full width)
-        ax3 = fig.add_subplot(gs[2, 0])  # Player 0 stats
-        ax4 = fig.add_subplot(gs[2, 1])  # Player 1 stats
+        ax3 = fig.add_subplot(gs[2, 0])  # Player 1 stats
+        ax4 = fig.add_subplot(gs[2, 1])  # Player 2 stats
 
         recent_wins = []
 
@@ -141,7 +138,7 @@ class Trainer:
             loss, won, player = await self.train_episode()
 
             self.losses.append(loss)
-            recent_wins.append(1 if won else 0)
+            recent_wins.append(won)
 
             # Keep only recent wins for win rate calculation
             if len(recent_wins) > window_size:
@@ -207,12 +204,12 @@ class Trainer:
 
             # Print progress
             if (episode + 1) % 100 == 0:
-                p0_wr = sum(self.player1_wins) / len(self.player1_wins) if self.player1_wins else 0
-                p1_wr = sum(self.player2_wins) / len(self.player2_wins) if self.player2_wins else 0
+                p1_wr = sum(self.player1_wins) / len(self.player1_wins) if self.player1_wins else 0
+                p2_wr = sum(self.player2_wins) / len(self.player2_wins) if self.player2_wins else 0
                 print(f"Episode {episode + 1}/{num_epochs}")
                 print(f"  Loss: {loss:.4f} | Overall WR: {win_rate:.2%}")
-                print(f"  Player 1 WR: {p0_wr:.2%} ({len(self.player1_wins)} games)")
-                print(f"  Player 2 WR: {p1_wr:.2%} ({len(self.player2_wins)} games)\n")
+                print(f"  Player 1 WR: {p1_wr:.2%} ({len(self.player1_wins)} games)")
+                print(f"  Player 2 WR: {p2_wr:.2%} ({len(self.player2_wins)} games)\n")
 
         plt.ioff()
         plt.show()
@@ -222,13 +219,13 @@ class Trainer:
 
         # Final statistics
         final_wr = sum(recent_wins) / len(recent_wins) if recent_wins else 0
-        p0_final = sum(self.player1_wins) / len(self.player1_wins) if self.player1_wins else 0
-        p1_final = sum(self.player2_wins) / len(self.player2_wins) if self.player2_wins else 0
+        p1_final = sum(self.player1_wins) / len(self.player1_wins) if self.player1_wins else 0
+        p2_final = sum(self.player2_wins) / len(self.player2_wins) if self.player2_wins else 0
 
         print(f"\nFinal Statistics:")
         print(f"  Overall Win Rate: {final_wr:.2%}")
-        print(f"  Player 0 Win Rate: {p0_final:.2%} ({len(self.player1_wins)} games)")
-        print(f"  Player 1 Win Rate: {p1_final:.2%} ({len(self.player2_wins)} games)")
+        print(f"  Player 1 Win Rate: {p1_final:.2%} ({len(self.player1_wins)} games)")
+        print(f"  Player 2 Win Rate: {p2_final:.2%} ({len(self.player2_wins)} games)")
 
     async def train_non_verbose(self, num_epochs, window_size):
         recent_wins = []
